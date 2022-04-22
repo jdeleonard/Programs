@@ -1,0 +1,7 @@
+
+1) I think this will take me 4 hours
+2) Thought/Design = 6
+   Programming = 4
+   Debugging = 1
+   Total = 10
+3) 60% underestimated

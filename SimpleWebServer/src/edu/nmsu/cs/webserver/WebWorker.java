@@ -21,14 +21,18 @@ package edu.nmsu.cs.webserver;
  *
  **/
 
+import java.io.*;
 import java.io.BufferedReader;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Socket;
 import java.text.DateFormat;
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.TimeZone;
+import java.util.*;
+import java.io.File;
 
 public class WebWorker implements Runnable
 {
@@ -55,9 +59,9 @@ public class WebWorker implements Runnable
 		{
 			InputStream is = socket.getInputStream();
 			OutputStream os = socket.getOutputStream();
-			readHTTPRequest(is);
-			writeHTTPHeader(os, "text/html");
-			writeContent(os);
+			String filename = readHTTPRequest(is);
+			boolean issueFound = writeHTTPHeader(os, "text/html", filename);
+			writeContent(os, issueFound, filename);
 			os.flush();
 			socket.close();
 		}
@@ -72,9 +76,10 @@ public class WebWorker implements Runnable
 	/**
 	 * Read the HTTP request header.
 	 **/
-	private void readHTTPRequest(InputStream is)
+	private String readHTTPRequest(InputStream is)
 	{
 		String line;
+      ArrayList<String> request = new ArrayList<String>();
 		BufferedReader r = new BufferedReader(new InputStreamReader(is));
 		while (true)
 		{
@@ -83,6 +88,7 @@ public class WebWorker implements Runnable
 				while (!r.ready())
 					Thread.sleep(1);
 				line = r.readLine();
+            request.add(line);
 				System.err.println("Request line: (" + line + ")");
 				if (line.length() == 0)
 					break;
@@ -93,7 +99,13 @@ public class WebWorker implements Runnable
 				break;
 			}
 		}
-		return;
+      String filename = request.get(0);
+      int index = filename.indexOf("/");
+      filename = filename.substring(index);
+      int index2 = filename.indexOf(" ");
+      filename = filename.substring(1, index2);
+      
+		return filename;
 	}
 
 	/**
@@ -104,12 +116,22 @@ public class WebWorker implements Runnable
 	 * @param contentType
 	 *          is the string MIME content type (e.g. "text/html")
 	 **/
-	private void writeHTTPHeader(OutputStream os, String contentType) throws Exception
-	{
+	private boolean writeHTTPHeader(OutputStream os, String contentType, String filename) throws Exception
+	{  
+      boolean issueFound = true;
+      File requestFile = new File(filename);
 		Date d = new Date();
 		DateFormat df = DateFormat.getDateTimeInstance();
 		df.setTimeZone(TimeZone.getTimeZone("GMT"));
-		os.write("HTTP/1.1 200 OK\n".getBytes());
+	   if(filename.equals("") || requestFile.exists()){
+         os.write("HTTP/1.1 200 OK\n".getBytes());
+         issueFound = false;
+      }
+      else{
+         os.write("HTTP/1.1 404 NOT FOUND \n".getBytes());
+         issueFound = true;
+      }
+         
 		os.write("Date: ".getBytes());
 		os.write((df.format(d)).getBytes());
 		os.write("\n".getBytes());
@@ -120,7 +142,7 @@ public class WebWorker implements Runnable
 		os.write("Content-Type: ".getBytes());
 		os.write(contentType.getBytes());
 		os.write("\n\n".getBytes()); // HTTP header ends with 2 newlines
-		return;
+		return issueFound;
 	}
 
 	/**
@@ -130,11 +152,34 @@ public class WebWorker implements Runnable
 	 * @param os
 	 *          is the OutputStream object to write to
 	 **/
-	private void writeContent(OutputStream os) throws Exception
+	private void writeContent(OutputStream os, boolean issueFound, String filename) throws Exception
 	{
-		os.write("<html><head></head><body>\n".getBytes());
-		os.write("<h3>My web server works!</h3>\n".getBytes());
-		os.write("</body></html>\n".getBytes());
+		LocalDate date = LocalDate.now();
+		if(issueFound){
+         os.write("<html><head></head><body>\n".getBytes());
+		   os.write("<h3>404 NOT FOUND</h3>\n".getBytes());
+		   os.write("</body></html>\n".getBytes());
+      }
+         
+      else{
+         if(filename.equals("")){
+      		os.write("<html><head></head><body>\n".getBytes());
+      		os.write("<h3>My web server works!</h3>\n".getBytes());
+      		os.write("</body></html>\n".getBytes());
+         }
+      BufferedReader reader = new BufferedReader(new FileReader(filename));
+      String line = "";
+      while((line = reader.readLine()) != null){
+    	 if(line.indexOf("<cs371date>") != -1) {
+    		 line = line.replaceAll("<cs371date>", LocalDate.now().toString());
+    	 }
+    	 if(line.indexOf("<cs371server>") != -1){
+    		 line = line.replaceAll("<cs371server>", "James's Server");
+    	 }
+         os.write(line.getBytes());
+      }
+   }
+  
 	}
 
 } // end class

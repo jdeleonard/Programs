@@ -61,6 +61,7 @@ public class WebWorker implements Runnable
 			OutputStream os = socket.getOutputStream();
 			String filename = readHTTPRequest(is);
 			boolean issueFound = writeHTTPHeader(os, "text/html", filename);
+			System.out.println(getContentType(filename));
 			writeContent(os, issueFound, filename);
 			os.flush();
 			socket.close();
@@ -181,5 +182,27 @@ public class WebWorker implements Runnable
    }
   
 	}
+
+
+
+	public String getContentType(String filename){
+
+		filename = filename.substring(filename.indexOf("."));
+
+		if (filename.equals(".gif")){
+			return "image/gif";
+		}
+		if (filename.equals(".png")){
+			return "image/png";
+		}
+		if (filename.equals(".jpg")){
+			return "image/jpg";
+		}
+		
+		return "text/html";
+
+	}
+
+
 
 } // end class

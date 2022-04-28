@@ -27,6 +27,7 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.net.Socket;
+import java.nio.file.Files;
 import java.text.DateFormat;
 import java.time.LocalDate;
 import java.util.Date;
@@ -60,9 +61,10 @@ public class WebWorker implements Runnable
 			InputStream is = socket.getInputStream();
 			OutputStream os = socket.getOutputStream();
 			String filename = readHTTPRequest(is);
-			boolean issueFound = writeHTTPHeader(os, "text/html", filename);
+			String contentType = getContentType(filename);
+			boolean issueFound = writeHTTPHeader(os, contentType, filename);
 			System.out.println(getContentType(filename));
-			writeContent(os, issueFound, filename);
+			writeContent(os, issueFound, filename,contentType);
 			os.flush();
 			socket.close();
 		}
@@ -120,18 +122,19 @@ public class WebWorker implements Runnable
 	private boolean writeHTTPHeader(OutputStream os, String contentType, String filename) throws Exception
 	{  
       boolean issueFound = true;
-      File requestFile = new File(filename);
+      	File requestFile = new File(filename);
 		Date d = new Date();
 		DateFormat df = DateFormat.getDateTimeInstance();
 		df.setTimeZone(TimeZone.getTimeZone("GMT"));
-	   if(filename.equals("") || requestFile.exists()){
-         os.write("HTTP/1.1 200 OK\n".getBytes());
-         issueFound = false;
-      }
-      else{
-         os.write("HTTP/1.1 404 NOT FOUND \n".getBytes());
-         issueFound = true;
-      }
+		
+		if(filename.equals("") || requestFile.exists()){
+			os.write("HTTP/1.1 200 OK\n".getBytes());
+			issueFound = false;
+		}
+		else{
+			os.write("HTTP/1.1 404 NOT FOUND \n".getBytes());
+			issueFound = true;
+		}
          
 		os.write("Date: ".getBytes());
 		os.write((df.format(d)).getBytes());
@@ -153,23 +156,31 @@ public class WebWorker implements Runnable
 	 * @param os
 	 *          is the OutputStream object to write to
 	 **/
-	private void writeContent(OutputStream os, boolean issueFound, String filename) throws Exception
+	private void writeContent(OutputStream os, boolean issueFound, String filename, String contentType) throws Exception
 	{
 		LocalDate date = LocalDate.now();
 		if(issueFound){
-         os.write("<html><head></head><body>\n".getBytes());
-		   os.write("<h3>404 NOT FOUND</h3>\n".getBytes());
-		   os.write("</body></html>\n".getBytes());
-      }
-         
-      else{
-         if(filename.equals("")){
-      		os.write("<html><head></head><body>\n".getBytes());
-      		os.write("<h3>My web server works!</h3>\n".getBytes());
-      		os.write("</body></html>\n".getBytes());
+			 os.write("<html><head></head><body>\n".getBytes());
+			 os.write("<h3>404 NOT FOUND</h3>\n".getBytes());
+			 os.write("</body></html>\n".getBytes());
+		}
+		else if (contentType.equals("image/gif")) {
+			System.out.print("++++++IN+++++++");
+			File img = new File(filename);
+			byte[] imgData = Files.readAllBytes(img.toPath());
+			os.write(imgData);
+		}
+		else if(1 == 1){
+	         if(filename.equals("")){
+	      		os.write("<html><head></head><body>\n".getBytes());
+	      		os.write("<h3>My web server works!</h3>\n".getBytes());
+	      		os.write("</body></html>\n".getBytes());
          }
-      BufferedReader reader = new BufferedReader(new FileReader(filename));
+         
+     else {
+     BufferedReader reader = new BufferedReader(new FileReader(filename));
       String line = "";
+      
       while((line = reader.readLine()) != null){
     	 if(line.indexOf("<cs371date>") != -1) {
     		 line = line.replaceAll("<cs371date>", LocalDate.now().toString());
@@ -179,24 +190,32 @@ public class WebWorker implements Runnable
     	 }
          os.write(line.getBytes());
       }
-   }
-  
-	}
-
+      }
+   }  
+}
 
 
 	public String getContentType(String filename){
 
-		filename = filename.substring(filename.indexOf("."));
-
-		if (filename.equals(".gif")){
-			return "image/gif";
+		if(filename.equals("") || filename.indexOf(".") == -1) {
+			return "text/html";
 		}
-		if (filename.equals(".png")){
-			return "image/png";
-		}
-		if (filename.equals(".jpg")){
-			return "image/jpg";
+		
+		File f = new File(filename);
+		
+		if(f.exists()) {
+			filename = filename.substring(filename.indexOf("."));
+		
+			if (filename.equals(".gif")){
+				return "image/gif";
+			}
+			if (filename.equals(".png")){
+				return "image/png";
+			}
+			if (filename.equals(".jpg")){
+				return "image/jpg";
+			}
+		
 		}
 		
 		return "text/html";
